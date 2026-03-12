@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>续智博 - Dynamic Footer Style</title>
+    <style>
+        :root {
+            --bg: #35e58e;
+            --ink: #070707;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: var(--bg);
+            overflow: hidden;
+            font-family: "Arial Black", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        .logo-wrap {
+            width: min(92vw, 1200px);
+            padding: 1.2rem 1rem;
+            position: relative;
+            background: transparent;
+        }
+
+        .logo-stack {
+            position: relative;
+            width: 100%;
+            display: grid;
+            place-items: center;
+        }
+
+        .logo {
+            position: relative;
+            text-align: center;
+            color: var(--ink);
+            font-size: clamp(3.2rem, 14vw, 9.5rem);
+            font-weight: 900;
+            letter-spacing: 0.06em;
+            line-height: 0.95;
+            text-transform: uppercase;
+            user-select: none;
+            white-space: nowrap;
+            transform: translate(0, 0);
+            transition: transform 80ms linear;
+            will-change: transform;
+        }
+
+        .logo-base {
+            position: relative;
+            z-index: 1;
+            transform: translate(calc(var(--mx, 0px) * 0.03), calc(var(--my, 0px) * 0.02));
+        }
+
+        .logo-slice {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .slice-a {
+            clip-path: polygon(0 0, 100% 0, 100% 28%, 0 36%);
+            transform: translate(calc(var(--mx, 0px) * 0.34), calc(var(--my, 0px) * -0.05));
+        }
+
+        .slice-b {
+            clip-path: polygon(0 34%, 100% 30%, 100% 64%, 0 68%);
+            transform: translate(calc(var(--mx, 0px) * -0.28), calc(var(--my, 0px) * 0.04));
+        }
+
+        .slice-c {
+            clip-path: polygon(0 66%, 100% 62%, 100% 100%, 0 100%);
+            transform: translate(calc(var(--mx, 0px) * 0.22), calc(var(--my, 0px) * 0.08));
+        }
+    </style>
+</head>
+<body>
+    <div class="logo-wrap">
+        <div class="logo-stack">
+            <div class="logo logo-base">续智博</div>
+            <div class="logo logo-slice slice-a" aria-hidden="true">续智博</div>
+            <div class="logo logo-slice slice-b" aria-hidden="true">续智博</div>
+            <div class="logo logo-slice slice-c" aria-hidden="true">续智博</div>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var wrap = document.querySelector('.logo-wrap');
+            if (!wrap) return;
+
+            function updateMove(clientX, clientY) {
+                var rect = wrap.getBoundingClientRect();
+                var x = (clientX - rect.left) / rect.width - 0.5;
+                var y = (clientY - rect.top) / rect.height - 0.5;
+                var strength = Math.min(1, Math.hypot(x, y) * 1.9);
+                var moveX = x * 34 * strength;
+                var moveY = y * 8 * strength;
+                wrap.style.setProperty('--mx', moveX.toFixed(2) + 'px');
+                wrap.style.setProperty('--my', moveY.toFixed(2) + 'px');
+            }
+
+            wrap.addEventListener('mousemove', function (e) {
+                updateMove(e.clientX, e.clientY);
+            });
+
+            wrap.addEventListener('touchmove', function (e) {
+                if (!e.touches[0]) return;
+                updateMove(e.touches[0].clientX, e.touches[0].clientY);
+            }, { passive: true });
+
+            function reset() {
+                wrap.style.setProperty('--mx', '0px');
+                wrap.style.setProperty('--my', '0px');
+            }
+
+            wrap.addEventListener('mouseleave', reset);
+            wrap.addEventListener('touchend', reset);
+            wrap.addEventListener('touchcancel', reset);
+        })();
+    </script>
+</body>
+</html>
