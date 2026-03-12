@@ -43,6 +43,7 @@
             display: grid;
             place-items: center;
             color: var(--ink);
+            font-family: "Arial Black", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: var(--logo-size);
             font-weight: 900;
             letter-spacing: 0.06em;
@@ -73,6 +74,7 @@
             display: grid;
             place-items: center;
             color: var(--ink);
+            font-family: "Arial Black", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: var(--logo-size);
             font-weight: 900;
             letter-spacing: 0.06em;
@@ -109,6 +111,8 @@
             var vx = 0, vy = 0;
             var raf = 0;
             var active = false;
+            var isTouchDevice = window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window);
+            var touchActive = false;
 
             function buildGrid() {
                 grid.innerHTML = '';
@@ -140,9 +144,9 @@
                 }
             }
 
-            function distort(nx, ny) {
+            function distort(nx, ny, introMode) {
                 // 鼠标附近最强，周围对称衰减（胶水扩散感）
-                var radius = 0.34;
+                var radius = introMode ? 0.24 : 0.34;
 
                 // 方向由鼠标移动决定（官网感）
                 vx = vx * 0.2 + (nx - px) * 0.8;
@@ -151,8 +155,8 @@
                 py = ny;
 
                 var speed = Math.hypot(vx, vy);
-                var dragAmp = Math.min(220, 20 + speed * 2200);
-                var pullAmp = 95;
+                var dragAmp = introMode ? Math.min(42, 6 + speed * 700) : Math.min(220, 20 + speed * 2200);
+                var pullAmp = introMode ? 26 : 95;
                 var now = performance.now();
 
                 for (var i = 0; i < tiles.length; i++) {
@@ -167,7 +171,7 @@
                     // toward-pointer pull + direction drag + viscous ripple
                     var ux = dx / d;
                     var uy = dy / d;
-                    var wave = Math.sin(d * 38 - now * 0.02) * (10 + speed * 320) * k;
+                    var wave = introMode ? 0 : Math.sin(d * 38 - now * 0.02) * (10 + speed * 320) * k;
 
                     var ox = dx * pullAmp * k + vx * dragAmp * k + ux * wave;
                     var oy = dy * (pullAmp * 0.62) * k + vy * (dragAmp * 0.55) * k + uy * wave * 0.65;
@@ -181,7 +185,7 @@
                 if (!active) return;
                 sx += (tx - sx) * 0.35;
                 sy += (ty - sy) * 0.35;
-                distort(sx, sy);
+                distort(sx, sy, false);
                 raf = requestAnimationFrame(loop);
             }
 
@@ -222,14 +226,33 @@
             }
 
             buildGrid();
-            window.addEventListener('mousemove', function (e) { updateFromPointer(e.clientX, e.clientY); });
-            window.addEventListener('touchmove', function (e) {
-                if (!e.touches[0]) return;
-                updateFromPointer(e.touches[0].clientX, e.touches[0].clientY);
-            }, { passive: true });
-            wrap.addEventListener('touchend', reset);
-            wrap.addEventListener('touchcancel', reset);
+
+            if (!isTouchDevice) {
+                window.addEventListener('mousemove', function (e) { updateFromPointer(e.clientX, e.clientY); });
+            } else {
+                wrap.addEventListener('touchstart', function (e) {
+                    if (!e.touches[0]) return;
+                    touchActive = true;
+                    updateFromPointer(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+
+                window.addEventListener('touchmove', function (e) {
+                    if (!touchActive || !e.touches[0]) return;
+                    updateFromPointer(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+
+                window.addEventListener('touchend', function () {
+                    touchActive = false;
+                    reset();
+                });
+                window.addEventListener('touchcancel', function () {
+                    touchActive = false;
+                    reset();
+                });
+            }
+
             window.addEventListener('resize', buildGrid);
+
         })();
     </script>
 </body>
