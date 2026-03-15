@@ -14,17 +14,29 @@
 
         body {
             min-height: 100vh;
+            position: relative;
             display: grid;
             place-items: center;
             background: var(--bg);
+            transition: background-color 360ms cubic-bezier(0.22, 1, 0.36, 1);
             overflow: hidden;
             font-family: "Arial Black", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        .splash-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
         }
 
         .hero {
             width: min(96vw, 1320px);
             padding: 0.8rem 0.4rem;
             touch-action: none;
+            position: relative;
+            z-index: 1;
         }
 
         .stage {
@@ -84,6 +96,39 @@
             transition: transform 95ms cubic-bezier(0.22, 1, 0.36, 1), opacity 90ms linear;
             will-change: transform;
         }
+
+        .ink-splash {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: var(--size, 180px);
+            height: var(--size, 180px);
+            background:
+                radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.22) 0 15%, transparent 28%),
+                radial-gradient(circle at 52% 56%, var(--color-soft, rgba(255, 111, 174, 0.7)) 0 58%, rgba(0, 0, 0, 0) 100%);
+            border-radius: 41% 59% 62% 38% / 50% 43% 57% 50%;
+            transform: translate(-50%, -50%) scale(0.08) rotate(var(--rot, 0deg));
+            filter: blur(var(--blur, 2px)) saturate(1.03);
+            opacity: var(--alpha, 0.88);
+            will-change: transform, border-radius, opacity;
+            animation: ink-burst var(--dur, 980ms) cubic-bezier(0.21, 0.81, 0.24, 1) forwards;
+        }
+
+        @keyframes ink-burst {
+            0% {
+                border-radius: 41% 59% 62% 38% / 50% 43% 57% 50%;
+                opacity: var(--alpha, 0.88);
+            }
+            58% {
+                border-radius: 56% 44% 39% 61% / 38% 58% 42% 62%;
+                opacity: calc(var(--alpha, 0.88) * 0.92);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(var(--scale, 18)) rotate(calc(var(--rot, 0deg) + 34deg));
+                border-radius: 50%;
+                opacity: 0.16;
+            }
+        }
     </style>
 </head>
 <body>
@@ -104,6 +149,16 @@
             var rows = 9;
             var text = '续智博';
             var tiles = [];
+            // Keep the same order, but normalize luminance/saturation for smoother transitions.
+            var colorSequence = ['#f58db8', '#5f88f2', '#4fd89a', '#e6be58', '#f292bf', '#9a69e3', '#6790ee', '#dfb850'];
+            var colorCursor = -1;
+            var lastSwitchAt = 0;
+            var lastSwitchX = window.innerWidth * 0.5;
+            var lastSwitchY = window.innerHeight * 0.5;
+
+            var splashLayer = document.createElement('div');
+            splashLayer.className = 'splash-layer';
+            document.body.appendChild(splashLayer);
 
             var tx = 0.5, ty = 0.5;
             var sx = 0.5, sy = 0.5;
@@ -201,6 +256,8 @@
             function updateFromPointer(clientX, clientY) {
                 var rect = wrap.getBoundingClientRect();
                 if (!rect.width || !rect.height) return;
+                lastSwitchX = clientX;
+                lastSwitchY = clientY;
                 if (!isNearRect(clientX, clientY, rect, 120)) {
                     reset();
                     return;
@@ -225,7 +282,107 @@
                 vx = 0; vy = 0;
             }
 
+            function createInkSplash(clientX, clientY, color) {
+                var size = Math.max(180, Math.min(window.innerWidth, window.innerHeight) * 0.24);
+                var far = Math.max(
+                    Math.hypot(clientX, clientY),
+                    Math.hypot(window.innerWidth - clientX, clientY),
+                    Math.hypot(clientX, window.innerHeight - clientY),
+                    Math.hypot(window.innerWidth - clientX, window.innerHeight - clientY)
+                );
+                var scale = (far * 2) / size;
+
+                function toRgba(hex, alpha) {
+                    var raw = hex.replace('#', '').trim();
+                    if (raw.length === 3) {
+                        raw = raw[0] + raw[0] + raw[1] + raw[1] + raw[2] + raw[2];
+                    }
+                    var r = parseInt(raw.slice(0, 2), 16);
+                    var g = parseInt(raw.slice(2, 4), 16);
+                    var b = parseInt(raw.slice(4, 6), 16);
+                    return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+                }
+
+                function addSplash(extraScale, duration, alpha, blur, jitter) {
+                    var splash = document.createElement('div');
+                    splash.className = 'ink-splash';
+                    splash.style.left = (clientX + (Math.random() * 2 - 1) * jitter).toFixed(1) + 'px';
+                    splash.style.top = (clientY + (Math.random() * 2 - 1) * jitter).toFixed(1) + 'px';
+                    splash.style.setProperty('--size', size.toFixed(1) + 'px');
+                    splash.style.setProperty('--scale', (Math.max(8, scale) * extraScale).toFixed(2));
+                    splash.style.setProperty('--dur', duration + 'ms');
+                    splash.style.setProperty('--alpha', alpha.toFixed(2));
+                    splash.style.setProperty('--blur', blur.toFixed(2) + 'px');
+                    splash.style.setProperty('--color-soft', toRgba(color, 0.74));
+                    splash.style.setProperty('--rot', (Math.random() * 70 - 35).toFixed(2) + 'deg');
+                    splashLayer.appendChild(splash);
+
+                    splash.addEventListener('animationend', function () {
+                        splash.remove();
+                    });
+                }
+
+                // 双层扩散，边缘更软，整体更像水墨晕染。
+                addSplash(0.9, 920, 0.84, 1.2, 8);
+                addSplash(1.16, 1260, 0.56, 3.3, 22);
+            }
+
+            function switchBackground(clientX, clientY) {
+                var now = performance.now();
+                if (now - lastSwitchAt < 220) return;
+                lastSwitchAt = now;
+                lastSwitchX = clientX;
+                lastSwitchY = clientY;
+
+                colorCursor = (colorCursor + 1) % colorSequence.length;
+                var nextColor = colorSequence[colorCursor];
+
+                createInkSplash(clientX, clientY, nextColor);
+                window.setTimeout(function () {
+                    document.documentElement.style.setProperty('--bg', nextColor);
+                }, 240);
+            }
+
+            function isTypingTarget(target) {
+                if (!target) return false;
+                var tag = target.tagName;
+                return (
+                    target.isContentEditable ||
+                    tag === 'INPUT' ||
+                    tag === 'TEXTAREA' ||
+                    tag === 'SELECT'
+                );
+            }
+
             buildGrid();
+
+            if (window.PointerEvent) {
+                window.addEventListener('pointerdown', function (e) {
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    lastSwitchX = e.clientX;
+                    lastSwitchY = e.clientY;
+                    switchBackground(e.clientX, e.clientY);
+                });
+            } else {
+                window.addEventListener('mousedown', function (e) {
+                    if (e.button !== 0) return;
+                    lastSwitchX = e.clientX;
+                    lastSwitchY = e.clientY;
+                    switchBackground(e.clientX, e.clientY);
+                });
+                window.addEventListener('touchstart', function (e) {
+                    if (!e.touches[0]) return;
+                    lastSwitchX = e.touches[0].clientX;
+                    lastSwitchY = e.touches[0].clientY;
+                    switchBackground(e.touches[0].clientX, e.touches[0].clientY);
+                }, { passive: true });
+            }
+
+            window.addEventListener('keydown', function (e) {
+                if (e.repeat) return;
+                if (isTypingTarget(e.target)) return;
+                switchBackground(lastSwitchX, lastSwitchY);
+            });
 
             if (!isTouchDevice) {
                 window.addEventListener('mousemove', function (e) { updateFromPointer(e.clientX, e.clientY); });
